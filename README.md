@@ -1,1 +1,612 @@
-# capnujk9phu
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>App Nutrición — Modo Oscuro</title>
+
+  <!-- Chart.js (gráficas) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root{
+      --bg-900:#0f1115;
+      --bg-850:#141822;
+      --bg-800:#1a2030;
+      --bg-700:#232b3e;
+      --text-100:#eef2ff;
+      --text-300:#c3c8d4;
+      --accent:#4fd1c5;      /* turquesa suave */
+      --accent-2:#8b5cf6;    /* violeta */
+      --accent-3:#f59e0b;    /* amarillo elegante */
+      --danger:#ef4444;
+      --ok:#22c55e;
+      --muted:#94a3b8;
+      --radius:16px;
+      --shadow:0 10px 24px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;background:linear-gradient(180deg,var(--bg-900),var(--bg-850));
+      color:var(--text-100);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
+    }
+    header{
+      position:sticky;top:0;z-index:5;
+      background:linear-gradient(180deg,var(--bg-850),rgba(20,24,34,.6));
+      backdrop-filter: blur(6px);
+      border-bottom:1px solid rgba(255,255,255,.06);
+      padding:14px 18px; display:flex; align-items:center; gap:12px;
+    }
+    header .title{font-size:18px;font-weight:700;letter-spacing:.3px}
+    header .tag{margin-left:auto; font-size:12px; color:var(--muted); padding:4px 8px; border:1px solid rgba(255,255,255,.08); border-radius:999px}
+    main{padding:16px; padding-bottom:92px; max-width:1100px; margin:0 auto;}
+
+    .card{
+      background:linear-gradient(180deg,var(--bg-800),var(--bg-700));
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin-bottom:16px;
+    }
+    h2{margin:0 0 10px 0; font-size:18px}
+    .sub{color:var(--text-300); font-size:13px; margin-bottom:12px}
+
+    .grid{display:grid; gap:12px}
+    @media(min-width:720px){ .grid.cols-2{grid-template-columns:1fr 1fr} .grid.cols-3{grid-template-columns:1fr 1fr 1fr} }
+
+    label{font-size:12px; color:var(--text-300); display:block; margin-bottom:6px}
+    input,select,button{
+      width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.08);
+      background:var(--bg-850); color:var(--text-100); outline:none;
+    }
+    input::placeholder{color:#6b7280}
+    button{
+      background: linear-gradient(180deg, var(--accent), #22b3a9);
+      color:#05151a; font-weight:700; cursor:pointer; transition: transform .08s ease, filter .2s ease;
+      border:none;
+    }
+    button:hover{filter:brightness(1.05)}
+    button:active{transform:scale(.98)}
+    .btn-row{display:flex; gap:10px; flex-wrap:wrap}
+    .btn-ghost{background:transparent; color:var(--text-100); border:1px solid rgba(255,255,255,.12)}
+    .btn-danger{background: linear-gradient(180deg, var(--danger), #c03636); color:white}
+    .btn-alt{background: linear-gradient(180deg, var(--accent-2), #6d35f3); color:white}
+
+    table{width:100%; border-collapse:collapse; overflow:hidden; border-radius:12px; margin-top:8px}
+    th,td{padding:10px; font-size:13px; text-align:center}
+    thead{background:rgba(255,255,255,.04)}
+    tbody tr{border-top:1px solid rgba(255,255,255,.06)}
+    .muted{color:var(--muted)}
+    .pill{padding:4px 8px; border-radius:999px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-size:11px}
+    .totals{display:grid; gap:8px; grid-template-columns:repeat(2,1fr)}
+    @media(min-width:720px){ .totals{grid-template-columns:repeat(4,1fr)} }
+    .total-box{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01)); border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:10px; text-align:center}
+    .total-box .v{font-weight:800; font-size:16px}
+    .footer-nav{
+      position:fixed; left:0; right:0; bottom:0; z-index:5;
+      background:linear-gradient(180deg,rgba(20,24,34,.6),var(--bg-900));
+      backdrop-filter: blur(6px);
+      border-top:1px solid rgba(255,255,255,.08);
+      display:flex; gap:10px; padding:10px; justify-content:space-around;
+    }
+    .tab-btn{flex:1; display:flex; flex-direction:column; gap:6px; align-items:center; padding:8px 6px; border-radius:12px}
+    .tab-btn.active{background:rgba(79,209,197,.12); border:1px solid rgba(79,209,197,.25)}
+    .chip{font-size:10px; color:var(--muted)}
+
+    .hidden{display:none}
+    canvas{background:transparent; border-radius:12px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title">🍏 App Nutrición</div>
+    <div class="tag">Modo oscuro</div>
+  </header>
+
+  <main>
+    <!-- TAB 1: Alimentos -->
+    <section id="tab-foods" class="tab card">
+      <h2>Base de datos de alimentos</h2>
+      <div class="sub">Guarda alimentos en tu dispositivo (localStorage). Puedes añadir por 100 g o por porción.</div>
+
+      <div class="grid cols-3 card" style="margin:0 0 12px 0">
+        <div><label>Nombre</label><input id="f_name" placeholder="Ej: Pechuga de pollo cocida"/></div>
+        <div><label>Calorías (kcal)</label><input id="f_cal" type="number" step="0.01" placeholder="kcal"/></div>
+        <div><label>Proteína (g)</label><input id="f_prot" type="number" step="0.01"/></div>
+
+        <div><label>Carbohidratos (g)</label><input id="f_carb" type="number" step="0.01"/></div>
+        <div><label>Grasas (g)</label><input id="f_fat" type="number" step="0.01"/></div>
+        <div><label>Azúcares (g)</label><input id="f_sugar" type="number" step="0.01"/></div>
+
+        <div><label>Fibra (g)</label><input id="f_fiber" type="number" step="0.01"/></div>
+        <div><label>Sodio (mg)</label><input id="f_sodium" type="number" step="0.01"/></div>
+        <div><label>Grasas saturadas (g)</label><input id="f_satfat" type="number" step="0.01"/></div>
+      </div>
+
+      <div class="btn-row" style="margin-bottom:10px">
+        <button id="btnAddFood">➕ Agregar alimento</button>
+        <button class="btn-ghost" id="btnExportFoods">⬇️ Exportar (.json)</button>
+        <label class="btn-ghost" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer">
+          ⬆️ Importar
+          <input id="importFoods" type="file" accept="application/json" style="display:none">
+        </label>
+        <button class="btn-danger" id="btnClearFoods">🗑 Borrar todos</button>
+      </div>
+
+      <div class="card">
+        <div class="sub">Alimentos guardados</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th><th>kcal</th><th>Prot</th><th>Carb</th><th>Grasa</th><th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="foodsTbody"></tbody>
+        </table>
+        <div class="muted" id="foodsEmpty">Aún no has agregado alimentos.</div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Diario -->
+    <section id="tab-diary" class="tab card hidden">
+      <h2>Diario de comidas</h2>
+      <div class="sub">Selecciona fecha, agrega alimentos y visualiza sumas y gráficas.</div>
+
+      <div class="grid cols-3 card" style="margin:0 0 12px 0">
+        <div>
+          <label>Fecha</label>
+          <input id="d_date" type="date"/>
+        </div>
+        <div>
+          <label>Alimento</label>
+          <select id="d_foodSelect"></select>
+        </div>
+        <div>
+          <label>Cantidad (porciones)</label>
+          <input id="d_qty" type="number" step="0.01" value="1"/>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-bottom:10px">
+        <button id="btnAddToDay">🍽 Agregar al día</button>
+        <button class="btn-ghost" id="btnClearDay">🧹 Limpiar día</button>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <div class="sub">Registro del día</div>
+          <table>
+            <thead>
+              <tr><th>Alimento</th><th>Porciones</th><th>kcal</th><th>Prot</th><th>Carb</th><th>Grasa</th><th></th></tr>
+            </thead>
+            <tbody id="dayTbody"></tbody>
+          </table>
+          <div id="dayEmpty" class="muted">Sin alimentos en esta fecha.</div>
+        </div>
+
+        <div class="card">
+          <div class="sub">Totales del día</div>
+          <div class="totals" id="dayTotals"></div>
+        </div>
+
+        <div class="card">
+          <div class="sub">Gráfico de macros</div>
+          <canvas id="chartMacros"></canvas>
+        </div>
+        <div class="card">
+          <div class="sub">Nutrientes clave</div>
+          <canvas id="chartBars"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: Semana -->
+    <section id="tab-week" class="tab card hidden">
+      <h2>Resumen semanal (7 días)</h2>
+      <div class="sub">Elige el día de inicio; se suman 7 días (inclusive).</div>
+
+      <div class="grid cols-3 card" style="margin:0 0 12px 0">
+        <div>
+          <label>Inicio de semana</label>
+          <input id="w_start" type="date"/>
+        </div>
+        <div class="btn-row" style="align-items:end">
+          <button id="btnLoadWeek">📆 Cargar semana</button>
+          <button class="btn-alt" id="btnThisWeek">⏱ Esta semana</button>
+        </div>
+        <div>
+          <span class="pill" id="wRange"></span>
+        </div>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <div class="sub">Totales de la semana</div>
+          <div class="totals" id="weekTotals"></div>
+        </div>
+        <div class="card">
+          <div class="sub">Calorías por día</div>
+          <canvas id="chartWeekCalories"></canvas>
+        </div>
+        <div class="card">
+          <div class="sub">Distribución semanal de macros</div>
+          <canvas id="chartWeekMacros"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Navegación inferior -->
+  <nav class="footer-nav">
+    <button class="tab-btn active" data-tab="foods">
+      <span>🥗</span><span>Alimentos</span><span class="chip">Base local</span>
+    </button>
+    <button class="tab-btn" data-tab="diary">
+      <span>📅</span><span>Diario</span><span class="chip">Sumas + gráficos</span>
+    </button>
+    <button class="tab-btn" data-tab="week">
+      <span>📈</span><span>Semana</span><span class="chip">7 días</span>
+    </button>
+  </nav>
+
+  <script>
+    /* ========= Persistencia ========= */
+    const LS_KEYS = {
+      foods: 'nutri_foods_v1',
+      diary: 'nutri_diary_v1'
+    };
+    const loadFoods = () => JSON.parse(localStorage.getItem(LS_KEYS.foods) || '[]');
+    const saveFoods = (arr) => localStorage.setItem(LS_KEYS.foods, JSON.stringify(arr));
+    const loadDiary = () => JSON.parse(localStorage.getItem(LS_KEYS.diary) || '{}');
+    const saveDiary = (obj) => localStorage.setItem(LS_KEYS.diary, JSON.stringify(obj));
+
+    /* ========= Estado ========= */
+    let foods = loadFoods();         // array de objetos alimento
+    let diary = loadDiary();         // { 'YYYY-MM-DD': [ {foodId, qtySnapshot, nameSnapshot, ...nutrSnapshot} ] }
+    let chartMacros, chartBars, chartWeekCalories, chartWeekMacros;
+
+    /* ========= Utilidades ========= */
+    const fmt2 = (n)=> (Math.round((+n + Number.EPSILON)*100)/100).toFixed(2);
+    const iso = (date) => date.toISOString().slice(0,10);
+    const parseDateInput = (str) => new Date(str+'T00:00:00');
+
+    const macroParts = (item)=>({
+      prot: +item.proteina || 0,
+      carb: +item.carbohidratos || 0,
+      fat:  +item.grasa || 0
+    });
+
+    /* ========= Tabs ========= */
+    document.querySelectorAll('.tab-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.dataset.tab;
+        document.querySelectorAll('section.tab').forEach(s=>s.classList.add('hidden'));
+        document.getElementById('tab-'+target).classList.remove('hidden');
+        if(target==='diary') refreshDiaryUI();
+      });
+    });
+
+    /* ========= TAB 1: Alimentos ========= */
+    const elFoodsTbody = document.getElementById('foodsTbody');
+    const elFoodsEmpty = document.getElementById('foodsEmpty');
+    const fields = {
+      name: document.getElementById('f_name'),
+      cal: document.getElementById('f_cal'),
+      prot: document.getElementById('f_prot'),
+      carb: document.getElementById('f_carb'),
+      fat: document.getElementById('f_fat'),
+      sugar: document.getElementById('f_sugar'),
+      fiber: document.getElementById('f_fiber'),
+      sodium: document.getElementById('f_sodium'),
+      satfat: document.getElementById('f_satfat')
+    };
+
+    const clearFoodForm = ()=> Object.values(fields).forEach(i=>i.value='');
+
+    function addFood(){
+      const name = fields.name.value.trim();
+      if(!name){ alert('Ingresa un nombre de alimento.'); return; }
+      const food = {
+        id: crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'_'+Math.random()),
+        nombre: name,
+        calorias: +fields.cal.value || 0,
+        proteina: +fields.prot.value || 0,
+        carbohidratos: +fields.carb.value || 0,
+        grasa: +fields.fat.value || 0,
+        azucares: +fields.sugar.value || 0,
+        fibra: +fields.fiber.value || 0,
+        sodio: +fields.sodium.value || 0,
+        grasas_saturadas: +fields.satfat.value || 0
+      };
+      foods.push(food); saveFoods(foods);
+      renderFoods(); populateFoodSelect();
+      clearFoodForm();
+    }
+
+    function deleteFood(id){
+      if(!confirm('¿Eliminar este alimento?')) return;
+      foods = foods.filter(f=>f.id!==id);
+      saveFoods(foods);
+      renderFoods(); populateFoodSelect();
+    }
+
+    function renderFoods(){
+      elFoodsTbody.innerHTML='';
+      if(!foods.length){ elFoodsEmpty.style.display='block'; return; }
+      elFoodsEmpty.style.display='none';
+      for(const f of foods){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="text-align:left">${f.nombre}</td>
+          <td>${fmt2(f.calorias)}</td>
+          <td>${fmt2(f.proteina)}</td>
+          <td>${fmt2(f.carbohidratos)}</td>
+          <td>${fmt2(f.grasa)}</td>
+          <td><button class="btn-danger" onclick="deleteFood('${f.id}')">Borrar</button></td>
+        `;
+        elFoodsTbody.appendChild(tr);
+      }
+    }
+
+    document.getElementById('btnAddFood').addEventListener('click', addFood);
+    document.getElementById('btnClearFoods').addEventListener('click', ()=>{
+      if(!foods.length) return;
+      if(confirm('¿Borrar TODOS los alimentos?')){ foods=[]; saveFoods(foods); renderFoods(); populateFoodSelect(); }
+    });
+    document.getElementById('btnExportFoods').addEventListener('click', ()=>{
+      const blob = new Blob([JSON.stringify(foods,null,2)], {type:'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'alimentos.json'; a.click(); URL.revokeObjectURL(a.href);
+    });
+    document.getElementById('importFoods').addEventListener('change', async (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      const text = await file.text();
+      try{
+        const arr = JSON.parse(text);
+        if(!Array.isArray(arr)) throw new Error('Formato inválido');
+        foods = arr.map(x=>({ id:x.id|| (Date.now()+'_'+Math.random()), ...x }));
+        saveFoods(foods); renderFoods(); populateFoodSelect();
+        alert('Alimentos importados.');
+      }catch(err){ alert('No se pudo importar: '+err.message); }
+      e.target.value='';
+    });
+
+    /* ========= TAB 2: Diario ========= */
+    const elDate = document.getElementById('d_date');
+    const elFoodSelect = document.getElementById('d_foodSelect');
+    const elQty = document.getElementById('d_qty');
+    const elDayTbody = document.getElementById('dayTbody');
+    const elDayEmpty = document.getElementById('dayEmpty');
+    const elDayTotals = document.getElementById('dayTotals');
+
+    // fecha por defecto: hoy
+    elDate.value = iso(new Date());
+
+    function populateFoodSelect(){
+      elFoodSelect.innerHTML='';
+      if(!foods.length){
+        const op = document.createElement('option');
+        op.textContent = '— No hay alimentos guardados —';
+        op.value=''; elFoodSelect.appendChild(op); return;
+      }
+      for(const f of foods){
+        const op=document.createElement('option');
+        op.value=f.id; op.textContent=f.nombre;
+        elFoodSelect.appendChild(op);
+      }
+    }
+
+    function addToDay(){
+      const dateStr = elDate.value;
+      const foodId = elFoodSelect.value;
+      const qty = +elQty.value || 1;
+      if(!dateStr){ alert('Selecciona una fecha.'); return; }
+      const food = foods.find(f=>f.id===foodId);
+      if(!food){ alert('Selecciona un alimento válido.'); return; }
+
+      if(!diary[dateStr]) diary[dateStr]=[];
+      // Guardamos un snapshot para que, si luego cambias el alimento base, no altere registros históricos
+      diary[dateStr].push({
+        id: crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'_'+Math.random()),
+        foodId: food.id,
+        qty,
+        nombre: food.nombre,
+        calorias: food.calorias,
+        proteina: food.proteina,
+        carbohidratos: food.carbohidratos,
+        grasa: food.grasa,
+        azucares: food.azucares,
+        fibra: food.fibra,
+        sodio: food.sodio,
+        grasas_saturadas: food.grasas_saturadas
+      });
+      saveDiary(diary);
+      refreshDiaryUI();
+      elQty.value='1';
+    }
+
+    function removeFromDay(entryId){
+      const dateStr = elDate.value;
+      diary[dateStr] = (diary[dateStr]||[]).filter(x=>x.id!==entryId);
+      if(!diary[dateStr].length) delete diary[dateStr];
+      saveDiary(diary);
+      refreshDiaryUI();
+    }
+
+    function clearDay(){
+      const dateStr = elDate.value;
+      if(!diary[dateStr]) return;
+      if(confirm('¿Eliminar todos los registros de este día?')){
+        delete diary[dateStr];
+        saveDiary(diary);
+        refreshDiaryUI();
+      }
+    }
+
+    function totalsFor(entries){
+      const t = { cal:0, prot:0, carb:0, fat:0, sugar:0, fiber:0, sodium:0, satfat:0 };
+      for(const e of entries){
+        const q=e.qty;
+        t.cal += (e.calorias||0)*q;
+        t.prot += (e.proteina||0)*q;
+        t.carb += (e.carbohidratos||0)*q;
+        t.fat  += (e.grasa||0)*q;
+        t.sugar+= (e.azucares||0)*q;
+        t.fiber+= (e.fibra||0)*q;
+        t.sodium+=(e.sodio||0)*q;
+        t.satfat+=(e.grasas_saturadas||0)*q;
+      }
+      return t;
+    }
+
+    function renderTotalsBox(container, t){
+      container.innerHTML = `
+        <div class="total-box"><div class="k">Calorías</div><div class="v">${fmt2(t.cal)}</div></div>
+        <div class="total-box"><div class="k">Proteína (g)</div><div class="v">${fmt2(t.prot)}</div></div>
+        <div class="total-box"><div class="k">Carbohidratos (g)</div><div class="v">${fmt2(t.carb)}</div></div>
+        <div class="total-box"><div class="k">Grasas (g)</div><div class="v">${fmt2(t.fat)}</div></div>
+        <div class="total-box"><div class="k">Azúcares (g)</div><div class="v">${fmt2(t.sugar)}</div></div>
+        <div class="total-box"><div class="k">Fibra (g)</div><div class="v">${fmt2(t.fiber)}</div></div>
+        <div class="total-box"><div class="k">Sodio (mg)</div><div class="v">${fmt2(t.sodium)}</div></div>
+        <div class="total-box"><div class="k">Grasa sat. (g)</div><div class="v">${fmt2(t.satfat)}</div></div>
+      `;
+    }
+
+    function refreshDiaryUI(){
+      // lista
+      const dateStr = elDate.value;
+      const entries = diary[dateStr] || [];
+      elDayTbody.innerHTML='';
+      if(!entries.length){ elDayEmpty.style.display='block'; }else{ elDayEmpty.style.display='none'; }
+      for(const e of entries){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="text-align:left">${e.nombre}</td>
+          <td>${fmt2(e.qty)}</td>
+          <td>${fmt2(e.calorias*e.qty)}</td>
+          <td>${fmt2(e.proteina*e.qty)}</td>
+          <td>${fmt2(e.carbohidratos*e.qty)}</td>
+          <td>${fmt2(e.grasa*e.qty)}</td>
+          <td><button class="btn-ghost" onclick="removeFromDay('${e.id}')">Eliminar</button></td>
+        `;
+        elDayTbody.appendChild(tr);
+      }
+      // totales + gráficos
+      const t = totalsFor(entries);
+      renderTotalsBox(elDayTotals, t);
+      drawDayCharts(t);
+    }
+
+    function drawDayCharts(t){
+      // Doughnut macros
+      const dataMacros = [t.prot*4, t.carb*4, t.fat*9]; // en kcal
+      const labelsMacros = ['Proteína (kcal)','Carbohidratos (kcal)','Grasas (kcal)'];
+      if(chartMacros) chartMacros.destroy();
+      chartMacros = new Chart(document.getElementById('chartMacros'), {
+        type:'doughnut',
+        data:{ labels:labelsMacros, datasets:[{ data:dataMacros }]},
+        options:{ plugins:{ legend:{ labels:{ color:'#dbeafe' } } } }
+      });
+
+      // Barras nutrientes
+      const labelsBars = ['Azúcar (g)','Fibra (g)','Sodio (mg)','Grasa sat (g)'];
+      const dataBars   = [t.sugar, t.fiber, t.sodium, t.satfat];
+      if(chartBars) chartBars.destroy();
+      chartBars = new Chart(document.getElementById('chartBars'),{
+        type:'bar',
+        data:{ labels:labelsBars, datasets:[{ data:dataBars }]},
+        options:{
+          scales:{
+            x:{ ticks:{ color:'#cbd5e1' }, grid:{ color:'rgba(255,255,255,.06)'} },
+            y:{ ticks:{ color:'#cbd5e1' }, grid:{ color:'rgba(255,255,255,.06)'} }
+          },
+          plugins:{ legend:{ display:false } }
+        }
+      });
+    }
+
+    document.getElementById('btnAddToDay').addEventListener('click', addToDay);
+    document.getElementById('btnClearDay').addEventListener('click', clearDay);
+    elDate.addEventListener('change', refreshDiaryUI);
+
+    /* ========= TAB 3: Semana ========= */
+    const elWStart = document.getElementById('w_start');
+    const elWRange = document.getElementById('wRange');
+    const elWeekTotals = document.getElementById('weekTotals');
+
+    function thisWeekRange(){
+      const today = new Date();
+      const start = new Date(today); start.setDate(today.getDate()-6);
+      return [start, today];
+    }
+
+    function loadWeek(startStr){
+      if(!startStr){ alert('Elige una fecha de inicio.'); return; }
+      const start = parseDateInput(startStr);
+      const days = [];
+      for(let i=0;i<7;i++){
+        const d = new Date(start); d.setDate(start.getDate()+i);
+        days.push(d);
+      }
+      elWRange.textContent = `${iso(days[0])} → ${iso(days[6])}`;
+
+      // agregados por día y totales
+      const dailyCals = [];
+      const total = { cal:0, prot:0, carb:0, fat:0 };
+      for(const d of days){
+        const key = iso(d);
+        const entries = diary[key]||[];
+        const tt = totalsFor(entries);
+        dailyCals.push({ label:key.slice(5), value: tt.cal });
+        total.cal += tt.cal; total.prot += tt.prot; total.carb += tt.carb; total.fat += tt.fat;
+      }
+      renderTotalsBox(elWeekTotals, total);
+
+      // Gráfico calorías por día
+      if(chartWeekCalories) chartWeekCalories.destroy();
+      chartWeekCalories = new Chart(document.getElementById('chartWeekCalories'), {
+        type:'bar',
+        data:{ labels:dailyCals.map(x=>x.label), datasets:[{ data:dailyCals.map(x=>x.value)}]},
+        options:{
+          scales:{
+            x:{ ticks:{ color:'#cbd5e1' }, grid:{ color:'rgba(255,255,255,.06)'} },
+            y:{ ticks:{ color:'#cbd5e1' }, grid:{ color:'rgba(255,255,255,.06)'} }
+          },
+          plugins:{ legend:{ display:false } }
+        }
+      });
+
+      // Gráfico macros semanales (kcal)
+      if(chartWeekMacros) chartWeekMacros.destroy();
+      chartWeekMacros = new Chart(document.getElementById('chartWeekMacros'), {
+        type:'doughnut',
+        data:{ labels:['Proteína (kcal)','Carbohidratos (kcal)','Grasas (kcal)'],
+               datasets:[{ data:[total.prot*4, total.carb*4, total.fat*9] }]},
+        options:{ plugins:{ legend:{ labels:{ color:'#dbeafe' } } } }
+      });
+    }
+
+    document.getElementById('btnLoadWeek').addEventListener('click', ()=> loadWeek(elWStart.value));
+    document.getElementById('btnThisWeek').addEventListener('click', ()=>{
+      const [start, end] = thisWeekRange();
+      elWStart.value = iso(start);
+      loadWeek(iso(start));
+    });
+
+    /* ========= Inicialización ========= */
+    function init(){
+      renderFoods();
+      populateFoodSelect();
+      refreshDiaryUI();
+      // Por defecto, "esta semana"
+      const [start] = thisWeekRange();
+      elWStart.value = iso(start);
+    }
+    init();
+
+    /* ========= Exponer funciones usadas en HTML ========= */
+    window.deleteFood = deleteFood;
+    window.removeFromDay = removeFromDay;
+  </script>
+</body>
+</html>
